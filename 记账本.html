@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="记账本">
+<title>记账本</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; background: #F7F8FA; min-height: 100vh; max-width: 430px; margin: 0 auto; }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; }
+
+  /* Toast */
+  #toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1C1C1E; color: #fff; border-radius: 20px; padding: 10px 22px; font-size: 14px; z-index: 999; white-space: nowrap; display: none; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 56px 24px 32px; color: #fff; }
+  .header-month { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
+  .header-amount { font-size: 42px; font-weight: 700; letter-spacing: -1px; }
+  .header-cats { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+  .header-cat { background: rgba(255,255,255,0.15); border-radius: 12px; padding: 8px 14px; font-size: 12px; }
+  .header-cat-amt { font-weight: 600; margin-top: 2px; }
+
+  /* Records */
+  .records { padding: 16px 16px 0; }
+  .date-group { margin-bottom: 16px; }
+  .date-label { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 8px; padding: 0 4px; }
+  .record-card { background: #fff; border-radius: 16px; overflow: hidden; }
+  .record-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #F2F2F7; }
+  .record-item:last-child { border-bottom: none; }
+  .record-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; flex-shrink: 0; }
+  .record-info { flex: 1; }
+  .record-cat { font-size: 15px; font-weight: 500; color: #1C1C1E; }
+  .record-note { font-size: 12px; color: #8E8E93; margin-top: 2px; }
+  .record-amount { font-size: 16px; font-weight: 600; color: #1C1C1E; }
+  .empty { text-align: center; color: #aaa; padding: 60px 0; font-size: 15px; line-height: 2; }
+
+  /* Add page */
+  .page { padding: 52px 16px 16px; display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 22px; font-weight: 700; color: #1C1C1E; margin-bottom: 20px; }
+
+  /* Mode tabs */
+  .mode-tabs { display: flex; background: #E5E5EA; border-radius: 12px; padding: 3px; margin-bottom: 20px; }
+  .mode-tab { flex: 1; padding: 8px 0; border-radius: 10px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; background: transparent; color: #666; }
+  .mode-tab.active { background: #fff; color: #1C1C1E; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Chat */
+  .chat-box { background: #fff; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .chat-box textarea { width: 100%; min-height: 100px; border: none; outline: none; font-size: 15px; resize: none; color: #1C1C1E; line-height: 1.6; }
+  .btn-primary { width: 100%; padding: 16px; border-radius: 14px; border: none; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .btn-primary:disabled { background: #C7C7CC; cursor: default; }
+  .btn-green { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #34C759; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+
+  .result-card { background: #fff; border-radius: 16px; padding: 20px; margin-top: 16px; }
+  .result-label { font-size: 13px; color: #888; margin-bottom: 12px; }
+  .result-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; }
+  .result-row span:first-child { color: #555; }
+  .result-amount { font-weight: 700; font-size: 18px; color: #1C1C1E; }
+
+  /* Manual */
+  .form-card { background: #fff; border-radius: 16px; padding: 20px; }
+  .form-label { font-size: 13px; color: #888; margin-bottom: 6px; }
+  .form-group { margin-bottom: 16px; }
+  .amount-input { width: 100%; font-size: 28px; font-weight: 700; border: none; border-bottom: 2px solid #E5E5EA; outline: none; padding-bottom: 8px; color: #1C1C1E; }
+  .cat-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cat-btn { padding: 7px 14px; border-radius: 20px; border: 2px solid #E5E5EA; font-size: 13px; cursor: pointer; transition: all .15s; background: #fff; color: #555; }
+  .cat-btn.active { border-color: #667eea; background: #667eea; color: #fff; }
+  .text-input { width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #E5E5EA; outline: none; font-size: 15px; color: #1C1C1E; }
+  .date-input { width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #E5E5EA; outline: none; font-size: 15px; color: #1C1C1E; }
+
+  /* Photo */
+  .photo-drop { background: #fff; border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; border: 2px dashed #C7C7CC; margin-bottom: 12px; }
+  .photo-icon { font-size: 48px; margin-bottom: 12px; }
+  .photo-title { font-size: 16px; font-weight: 600; color: #1C1C1E; margin-bottom: 6px; }
+  .photo-sub { font-size: 13px; color: #888; }
+  .loading-text { text-align: center; padding: 20px; color: #888; }
+
+  /* Stats */
+  .stats-header { background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 20px; padding: 24px; color: #fff; margin-bottom: 16px; }
+  .stats-label { font-size: 13px; opacity: 0.8; }
+  .stats-amount { font-size: 38px; font-weight: 700; margin-top: 4px; }
+  .stats-count { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+  .stat-item { background: #fff; border-radius: 16px; padding: 16px; margin-bottom: 10px; display: flex; align-items: center; }
+  .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-right: 14px; flex-shrink: 0; }
+  .stat-info { flex: 1; }
+  .stat-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .stat-bar-bg { height: 4px; background: #F2F2F7; border-radius: 2px; }
+  .stat-bar { height: 4px; border-radius: 2px; transition: width .4s; }
+  .stat-pct { font-size: 11px; color: #888; margin-top: 4px; }
+  .btn-outline { width: 100%; padding: 14px; border-radius: 14px; border: 2px solid #667eea; background: transparent; color: #667eea; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+
+  /* Bottom Nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid #E5E5EA; display: flex; align-items: center; padding: 8px 0 28px; z-index: 100; }
+  .nav-btn { flex: 1; background: none; border: none; cursor: pointer; padding: 6px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 10px; color: #8E8E93; font-weight: 400; }
+  .nav-btn.active .nav-label { color: #667eea; font-weight: 600; }
+  .nav-add { width: 46px; height: 46px; border-radius: 23px; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(102,126,234,0.5); margin-top: -18px; }
+  .nav-plus { color: #fff; font-size: 26px; line-height: 1; }
+
+  /* API Key prompt */
+  .apikey-card { background: #fff3cd; border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid #ffc107; }
+  .apikey-title { font-size: 14px; font-weight: 600; color: #856404; margin-bottom: 8px; }
+  .apikey-input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; margin-bottom: 8px; }
+  .apikey-save { padding: 8px 20px; border-radius: 10px; border: none; background: #667eea; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .apikey-tip { font-size: 12px; color: #888; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- HOME PAGE -->
+<div id="page-home" style="padding-bottom: 80px;">
+  <div class="header">
+    <div class="header-month" id="header-month"></div>
+    <div class="header-amount" id="header-amount">¥0.00</div>
+    <div class="header-cats" id="header-cats"></div>
+  </div>
+  <div class="records" id="records-list">
+    <div class="empty">还没有记录<br><span style="font-size:13px">点击下方 + 开始记账</span></div>
+  </div>
+</div>
+
+<!-- ADD PAGE -->
+<div id="page-add" class="page" style="padding-bottom:80px">
+  <div class="page-title">记一笔</div>
+
+  <!-- API Key setup -->
+  <div id="apikey-section" class="apikey-card" style="display:none">
+    <div class="apikey-title">⚙️ 首次使用需要配置 API Key</div>
+    <input class="apikey-input" id="apikey-input" type="password" placeholder="输入你的 Anthropic API Key (sk-ant-...)">
+    <br>
+    <button class="apikey-save" onclick="saveApiKey()">保存</button>
+    <div class="apikey-tip">Key 只存在你手机本地，不会上传。<br>没有 Key？手动记账功能不受影响。</div>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="switchMode('chat')">💬 说一句</button>
+    <button class="mode-tab" onclick="switchMode('manual')">✏️ 手动填</button>
+    <button class="mode-tab" onclick="switchMode('photo')">📷 拍截图</button>
+  </div>
+
+  <!-- Chat Panel -->
+  <div id="panel-chat" class="panel active">
+    <div class="chat-box">
+      <textarea id="chat-input" placeholder="例如：
+今天午饭吃麻辣烫花了28块
+打车去机场花了65
+买了件衣服199"></textarea>
+    </div>
+    <button class="btn-primary" id="chat-btn" onclick="handleChat()">AI 识别</button>
+    <div id="chat-result" style="display:none" class="result-card">
+      <div class="result-label">识别结果，确认后记录：</div>
+      <div class="result-row"><span>金额</span><span class="result-amount" id="r-amount"></span></div>
+      <div class="result-row"><span>分类</span><span id="r-cat"></span></div>
+      <div class="result-row" id="r-note-row"><span>备注</span><span id="r-note"></span></div>
+      <div class="result-row"><span>日期</span><span id="r-date"></span></div>
+      <button class="btn-green" style="margin-top:8px" onclick="confirmAiResult('chat')">✓ 确认记录</button>
+    </div>
+  </div>
+
+  <!-- Manual Panel -->
+  <div id="panel-manual" class="panel">
+    <div class="form-card">
+      <div class="form-group">
+        <div class="form-label">金额</div>
+        <input class="amount-input" type="number" inputmode="decimal" id="manual-amount" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <div class="form-label">分类</div>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">备注（可选）</div>
+        <input class="text-input" type="text" id="manual-note" placeholder="在哪消费的？">
+      </div>
+      <div class="form-group">
+        <div class="form-label">日期</div>
+        <input class="date-input" type="date" id="manual-date">
+      </div>
+      <button class="btn-primary" onclick="handleManual()">记录</button>
+    </div>
+  </div>
+
+  <!-- Photo Panel -->
+  <div id="panel-photo" class="panel">
+    <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+    <div class="photo-drop" onclick="document.getElementById('photo-input').click()">
+      <div class="photo-icon">📱</div>
+      <div class="photo-title">上传支付截图</div>
+      <div class="photo-sub">支持支付宝、微信支付、小票等</div>
+    </div>
+    <div id="photo-loading" class="loading-text" style="display:none">AI 识别中…</div>
+    <div id="photo-result" style="display:none" class="result-card">
+      <div class="result-label">识别结果，确认后记录：</div>
+      <div class="result-row"><span>金额</span><span class="result-amount" id="pr-amount"></span></div>
+      <div class="result-row"><span>分类</span><span id="pr-cat"></span></div>
+      <div class="result-row" id="pr-note-row"><span>备注</span><span id="pr-note"></span></div>
+      <div class="result-row"><span>日期</span><span id="pr-date"></span></div>
+      <button class="btn-green" style="margin-top:8px" onclick="confirmAiResult('photo')">✓ 确认记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATS PAGE -->
+<div id="page-stats" class="page" style="padding-bottom:80px">
+  <div class="page-title">本月统计</div>
+  <div class="stats-header">
+    <div class="stats-label">本月总支出</div>
+    <div class="stats-amount" id="stats-total">¥0.00</div>
+    <div class="stats-count" id="stats-count">0 笔记录</div>
+  </div>
+  <div id="stats-cats"></div>
+  <button class="btn-outline" id="export-btn" onclick="exportCSV()" style="display:none">导出 CSV 表格</button>
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="switchTab('home')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">账单</span>
+  </button>
+  <button class="nav-btn" id="nav-add" onclick="switchTab('add')">
+    <div class="nav-add"><span class="nav-plus">+</span></div>
+    <span class="nav-label" style="margin-top:2px">记账</span>
+  </button>
+  <button class="nav-btn" id="nav-stats" onclick="switchTab('stats')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">统计</span>
+  </button>
+</div>
+
+<script>
+const CATEGORIES = ["餐饮","购物","交通","娱乐","医疗","居家","教育","其他"];
+const ICONS = {餐饮:"🍜",购物:"🛍️",交通:"🚇",娱乐:"🎬",医疗:"💊",居家:"🏠",教育:"📚",其他:"💰"};
+const COLORS = {餐饮:"#FF6B6B",购物:"#FF9F43",交通:"#48DBFB",娱乐:"#FF9FF3",医疗:"#54A0FF",居家:"#5F27CD",教育:"#00D2D3",其他:"#C8D6E5"};
+
+let records = [];
+let currentTab = 'home';
+let selectedCat = '餐饮';
+let aiChatResult = null;
+let aiPhotoResult = null;
+
+function loadRecords() {
+  try { records = JSON.parse(localStorage.getItem('expense_records') || '[]'); } catch { records = []; }
+}
+function saveRecords() {
+  try { localStorage.setItem('expense_records', JSON.stringify(records)); } catch {}
+}
+
+function getApiKey() { return localStorage.getItem('anthropic_api_key') || ''; }
+function saveApiKey() {
+  const k = document.getElementById('apikey-input').value.trim();
+  if (!k) return showToast('请输入 API Key');
+  localStorage.setItem('anthropic_api_key', k);
+  document.getElementById('apikey-section').style.display = 'none';
+  showToast('✅ 已保存');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2200);
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+function formatDate(d) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('zh-CN', {month:'numeric',day:'numeric',weekday:'short'});
+}
+
+// --- TABS ---
+function switchTab(tab) {
+  currentTab = tab;
+  ['home','add','stats'].forEach(t => {
+    document.getElementById('page-'+t).style.display = t === tab ? 'block' : 'none';
+    const nb = document.getElementById('nav-'+t);
+    if (nb) nb.classList.toggle('active', t === tab);
+  });
+  if (tab === 'home') renderHome();
+  if (tab === 'stats') renderStats();
+  if (tab === 'add') {
+    document.getElementById('manual-date').value = today();
+    const hasKey = !!getApiKey();
+    document.getElementById('apikey-section').style.display = hasKey ? 'none' : 'block';
+  }
+}
+
+// --- MODE TABS ---
+function switchMode(mode) {
+  document.querySelectorAll('.mode-tab').forEach((b,i) => b.classList.toggle('active', ['chat','manual','photo'][i] === mode));
+  ['chat','manual','photo'].forEach(m => document.getElementById('panel-'+m).classList.toggle('active', m === mode));
+  document.getElementById('chat-result').style.display = 'none';
+  document.getElementById('photo-result').style.display = 'none';
+}
+
+// --- CATEGORIES ---
+function renderCatGrid() {
+  const grid = document.getElementById('cat-grid');
+  grid.innerHTML = CATEGORIES.map(c =>
+    `<button class="cat-btn${c===selectedCat?' active':''}" onclick="selectCat('${c}')">${ICONS[c]} ${c}</button>`
+  ).join('');
+}
+function selectCat(cat) {
+  selectedCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  event.target.closest('.cat-btn').classList.add('active');
+}
+
+// --- ADD RECORD ---
+function addRecord(amount, category, note, date) {
+  const r = { id: Date.now(), amount: parseFloat(amount), category, note: note||'', date };
+  records.unshift(r);
+  saveRecords();
+  showToast('✅ 已记录');
+  aiChatResult = null; aiPhotoResult = null;
+  document.getElementById('chat-input').value = '';
+  document.getElementById('chat-result').style.display = 'none';
+  document.getElementById('photo-result').style.display = 'none';
+  document.getElementById('manual-amount').value = '';
+  document.getElementById('manual-note').value = '';
+  switchTab('home');
+}
+
+// --- AI CALL ---
+async function callClaude(messages, sys) {
+  const key = getApiKey();
+  if (!key) { showToast('请先配置 API Key'); return null; }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, system: sys, messages })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content?.map(b => b.text||'').join('') || '';
+}
+
+// --- CHAT ---
+async function handleChat() {
+  const text = document.getElementById('chat-input').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('chat-btn');
+  btn.disabled = true; btn.textContent = '识别中…';
+  document.getElementById('chat-result').style.display = 'none';
+  try {
+    const sys = `你是记账助手，从用户自然语言中提取消费信息。只返回JSON，格式：{"amount":数字,"category":"分类","note":"备注","date":"YYYY-MM-DD"}。分类只能是：餐饮、购物、交通、娱乐、医疗、居家、教育、其他。今天日期：${today()}。只返回JSON，不要其他文字。`;
+    const raw = await callClaude([{role:'user',content:text}], sys);
+    if (!raw) return;
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    aiChatResult = parsed;
+    document.getElementById('r-amount').textContent = '¥' + parsed.amount;
+    document.getElementById('r-cat').textContent = (ICONS[parsed.category]||'') + ' ' + parsed.category;
+    document.getElementById('r-note').textContent = parsed.note||'';
+    document.getElementById('r-note-row').style.display = parsed.note ? 'flex' : 'none';
+    document.getElementById('r-date').textContent = parsed.date;
+    document.getElementById('chat-result').style.display = 'block';
+  } catch(e) { showToast('识别失败，请重试'); }
+  btn.disabled = false; btn.textContent = 'AI 识别';
+}
+
+// --- PHOTO ---
+async function handlePhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('photo-loading').style.display = 'block';
+  document.getElementById('photo-result').style.display = 'none';
+  try {
+    const base64 = await new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej; r.readAsDataURL(file);
+    });
+    const sys = `你是记账助手，从支付截图或小票中提取消费信息。只返回JSON，格式：{"amount":数字,"category":"分类","note":"备注","date":"YYYY-MM-DD"}。分类只能是：餐饮、购物、交通、娱乐、医疗、居家、教育、其他。今天日期：${today()}，没有日期就用今天。只返回JSON。`;
+    const raw = await callClaude([{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:file.type,data:base64}},
+      {type:'text',text:'请提取消费信息'}
+    ]}], sys);
+    if (!raw) return;
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    aiPhotoResult = parsed;
+    document.getElementById('pr-amount').textContent = '¥' + parsed.amount;
+    document.getElementById('pr-cat').textContent = (ICONS[parsed.category]||'') + ' ' + parsed.category;
+    document.getElementById('pr-note').textContent = parsed.note||'';
+    document.getElementById('pr-note-row').style.display = parsed.note ? 'flex' : 'none';
+    document.getElementById('pr-date').textContent = parsed.date;
+    document.getElementById('photo-result').style.display = 'block';
+  } catch(e) { showToast('识别失败，换张图片试试'); }
+  document.getElementById('photo-loading').style.display = 'none';
+  e.target.value = '';
+}
+
+function confirmAiResult(src) {
+  const r = src === 'chat' ? aiChatResult : aiPhotoResult;
+  if (!r) return;
+  addRecord(r.amount, r.category, r.note, r.date);
+}
+
+function handleManual() {
+  const amount = document.getElementById('manual-amount').value;
+  if (!amount) return showToast('请输入金额');
+  const note = document.getElementById('manual-note').value;
+  const date = document.getElementById('manual-date').value || today();
+  addRecord(amount, selectedCat, note, date);
+}
+
+// --- RENDER HOME ---
+function renderHome() {
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const now = new Date();
+  document.getElementById('header-month').textContent = `${now.getFullYear()}年${now.getMonth()+1}月支出`;
+  const monthRecs = records.filter(r => r.date?.startsWith(thisMonth));
+  const total = monthRecs.reduce((s,r) => s+r.amount, 0);
+  document.getElementById('header-amount').textContent = '¥' + total.toFixed(2);
+
+  const catTotals = {};
+  for (const r of monthRecs) catTotals[r.category] = (catTotals[r.category]||0) + r.amount;
+  const top = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  document.getElementById('header-cats').innerHTML = top.map(([c,a]) =>
+    `<div class="header-cat">${ICONS[c]} ${c}<div class="header-cat-amt">¥${a.toFixed(0)}</div></div>`
+  ).join('');
+
+  const list = document.getElementById('records-list');
+  if (!records.length) { list.innerHTML = '<div class="empty">还没有记录<br><span style="font-size:13px">点击下方 + 开始记账</span></div>'; return; }
+
+  const grouped = {};
+  for (const r of records.slice(0,60)) { if (!grouped[r.date]) grouped[r.date]=[]; grouped[r.date].push(r); }
+  const keys = Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+
+  list.innerHTML = keys.map(date => {
+    const recs = grouped[date];
+    const dayTotal = recs.reduce((s,r)=>s+r.amount,0);
+    return `<div class="date-group">
+      <div class="date-label"><span>${formatDate(date)}</span><span>¥${dayTotal.toFixed(2)}</span></div>
+      <div class="record-card">${recs.map((r,i) =>
+        `<div class="record-item" style="${i<recs.length-1?'':'border-bottom:none'}">
+          <div class="record-icon" style="background:${COLORS[r.category]}22">${ICONS[r.category]||'💰'}</div>
+          <div class="record-info">
+            <div class="record-cat">${r.category}</div>
+            ${r.note?`<div class="record-note">${r.note}</div>`:''}
+          </div>
+          <div class="record-amount">¥${r.amount.toFixed(2)}</div>
+        </div>`
+      ).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// --- RENDER STATS ---
+function renderStats() {
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const monthRecs = records.filter(r => r.date?.startsWith(thisMonth));
+  const total = monthRecs.reduce((s,r)=>s+r.amount,0);
+  document.getElementById('stats-total').textContent = '¥' + total.toFixed(2);
+  document.getElementById('stats-count').textContent = monthRecs.length + ' 笔记录';
+
+  const catTotals = {};
+  for (const r of monthRecs) catTotals[r.category] = (catTotals[r.category]||0)+r.amount;
+  const top = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('stats-cats').innerHTML = top.length ? top.map(([c,a]) =>
+    `<div class="stat-item">
+      <div class="stat-icon" style="background:${COLORS[c]}22">${ICONS[c]}</div>
+      <div class="stat-info">
+        <div class="stat-row"><span style="font-weight:500;color:#1C1C1E">${c}</span><span style="font-weight:600;color:#1C1C1E">¥${a.toFixed(2)}</span></div>
+        <div class="stat-bar-bg"><div class="stat-bar" style="background:${COLORS[c]};width:${(a/total*100).toFixed(0)}%"></div></div>
+        <div class="stat-pct">${(a/total*100).toFixed(0)}%</div>
+      </div>
+    </div>`
+  ).join('') : '<div style="text-align:center;color:#aaa;padding:40px">本月暂无数据</div>';
+
+  document.getElementById('export-btn').style.display = records.length ? 'block' : 'none';
+}
+
+function exportCSV() {
+  const csv = ['日期,金额,分类,备注', ...records.map(r=>`${r.date},${r.amount},${r.category},${r.note||''}`)].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '账单.csv'; a.click();
+}
+
+// --- INIT ---
+loadRecords();
+renderCatGrid();
+document.getElementById('manual-date').value = today();
+
+// Show all pages hidden except home
+document.getElementById('page-add').style.display = 'none';
+document.getElementById('page-stats').style.display = 'none';
+document.getElementById('page-home').style.display = 'block';
+renderHome();
+
+// Check API key on load
+if (!getApiKey()) {
+  // Will show when user opens add tab
+}
+</script>
+</body>
+</html>
