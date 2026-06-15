@@ -122,6 +122,27 @@ button, input, textarea, select { font-family: inherit; }
 .apikey-save { padding: 8px 20px; border-radius: 10px; border: none; background: #667eea; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
 .apikey-tip { font-size: 12px; color: #888; margin-top: 6px; line-height: 1.5; }
 
+/* Action sheet modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.action-sheet { background: #F2F2F7; border-radius: 16px 16px 0 0; width: 100%; max-width: 430px; padding: 8px 16px 40px; }
+.action-title { text-align: center; font-size: 13px; color: #888; padding: 12px 0 8px; }
+.action-card { background: #fff; border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
+.action-btn { width: 100%; padding: 16px; border: none; background: transparent; font-size: 17px; cursor: pointer; display: block; text-align: center; border-bottom: 1px solid #F2F2F7; }
+.action-btn:last-child { border-bottom: none; }
+.action-btn.red { color: #FF3B30; }
+.action-btn.cancel { background: #fff; border-radius: 14px; font-weight: 600; }
+
+/* Edit modal */
+.edit-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; }
+.edit-modal.show { display: flex; }
+.edit-card { background: #F2F2F7; border-radius: 20px; width: 100%; max-width: 400px; padding: 20px; max-height: 85vh; overflow-y: auto; }
+.edit-title { font-size: 18px; font-weight: 700; color: #1C1C1E; margin-bottom: 16px; text-align: center; }
+.edit-actions { display: flex; gap: 10px; margin-top: 16px; }
+.edit-actions button { flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-cancel-edit { background: #E5E5EA; color: #555; }
+.btn-save-edit { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
+
 .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid #E5E5EA; display: flex; align-items: center; padding: 8px 0 28px; z-index: 100; }
 .nav-btn { flex: 1; background: none; border: none; cursor: pointer; padding: 6px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .nav-icon { font-size: 22px; }
@@ -134,6 +155,49 @@ button, input, textarea, select { font-family: inherit; }
 <body>
 
 <div id="toast"></div>
+
+<!-- Action Sheet -->
+<div class="modal-overlay" id="action-overlay" onclick="closeActionSheet()">
+  <div class="action-sheet" onclick="event.stopPropagation()">
+    <div class="action-title" id="action-title"></div>
+    <div class="action-card">
+      <button class="action-btn" onclick="editRecord()">✏️ 编辑</button>
+      <button class="action-btn red" onclick="deleteRecord()">🗑️ 删除</button>
+    </div>
+    <button class="action-btn cancel" onclick="closeActionSheet()">取消</button>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="edit-modal" id="edit-modal">
+  <div class="edit-card">
+    <div class="edit-title">编辑账单</div>
+    <div class="form-group">
+      <div class="form-label">金额</div>
+      <input class="amount-input" type="number" inputmode="decimal" id="edit-amount" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <div class="form-label">分类</div>
+      <div class="cat-grid" id="edit-cat-grid"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">支付方式</div>
+      <div class="pay-grid" id="edit-pay-grid"></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">备注</div>
+      <input class="text-input" type="text" id="edit-note" placeholder="消费备注">
+    </div>
+    <div class="form-group">
+      <div class="form-label">日期</div>
+      <input class="date-input" type="date" id="edit-date">
+    </div>
+    <div class="edit-actions">
+      <button class="btn-cancel-edit" onclick="closeEditModal()">取消</button>
+      <button class="btn-save-edit" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
 
 <!-- HOME -->
 <div id="page-home" style="padding-bottom:80px">
@@ -445,7 +509,7 @@ function renderHome() {
   list.innerHTML=keys.map(date=>{
     const recs=grouped[date], dayTotal=recs.reduce((s,r)=>s+r.amount,0);
     return `<div class="date-group"><div class="date-label"><span>${formatDate(date)}</span><span>¥${dayTotal.toFixed(2)}</span></div>
-    <div class="record-card">${recs.map((r,i)=>`<div class="record-item">
+    <div class="record-card">${recs.map((r,i)=>`<div class="record-item" onclick="openActionSheet(${r.id})" style="cursor:pointer">
       <div class="record-icon" style="background:${COLORS[r.category]}22">${ICONS[r.category]||'💰'}</div>
       <div class="record-info"><div class="record-cat">${r.category}</div>
       <div class="record-meta">${r.pay||''}${r.note?' · '+r.note:''}</div></div>
@@ -567,6 +631,71 @@ function renderYearStats() {
         <div class="stat-pct">${total?(a/total*100).toFixed(1):0}%</div>
       </div></div>`).join('')}`:''}
   `;
+}
+
+let activeRecordId = null;
+let editCat = '餐饮';
+let editPay = '支付宝';
+
+function openActionSheet(id) {
+  activeRecordId = id;
+  const r = records.find(r=>r.id===id);
+  if (!r) return;
+  document.getElementById('action-title').textContent = `${ICONS[r.category]} ${r.category} · ¥${r.amount.toFixed(2)}`;
+  document.getElementById('action-overlay').classList.add('show');
+}
+function closeActionSheet() {
+  document.getElementById('action-overlay').classList.remove('show');
+}
+function deleteRecord() {
+  if (!activeRecordId) return;
+  if (!confirm('确定删除这条记录？')) return;
+  records = records.filter(r=>r.id!==activeRecordId);
+  saveRecords();
+  closeActionSheet();
+  renderHome();
+  showToast('已删除');
+}
+function editRecord() {
+  const r = records.find(r=>r.id===activeRecordId);
+  if (!r) return;
+  closeActionSheet();
+  editCat = r.category;
+  editPay = r.pay||'支付宝';
+  document.getElementById('edit-amount').value = r.amount;
+  document.getElementById('edit-note').value = r.note||'';
+  document.getElementById('edit-date').value = r.date;
+  document.getElementById('edit-cat-grid').innerHTML = CATEGORIES.map(c=>
+    `<button class="cat-btn${c===editCat?' active':''}" onclick="setEditCat('${c}',this)">${ICONS[c]} ${c}</button>`
+  ).join('');
+  document.getElementById('edit-pay-grid').innerHTML = PAY_METHODS.map(p=>
+    `<button class="pay-btn${p===editPay?' active':''}" onclick="setEditPay('${p}',this)">${PAY_ICONS[p]||'💳'} ${p}</button>`
+  ).join('');
+  document.getElementById('edit-modal').classList.add('show');
+}
+function setEditCat(cat, el) {
+  editCat = cat;
+  document.querySelectorAll('#edit-cat-grid .cat-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function setEditPay(pay, el) {
+  editPay = pay;
+  document.querySelectorAll('#edit-pay-grid .pay-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('show');
+}
+function saveEdit() {
+  const amount = document.getElementById('edit-amount').value;
+  if (!amount) return showToast('请输入金额');
+  const idx = records.findIndex(r=>r.id===activeRecordId);
+  if (idx===-1) return;
+  records[idx] = {...records[idx], amount:parseFloat(amount), category:editCat, pay:editPay, note:document.getElementById('edit-note').value, date:document.getElementById('edit-date').value};
+  saveRecords();
+  closeEditModal();
+  renderHome();
+  showToast('✅ 已保存');
 }
 
 function exportCSV() {
