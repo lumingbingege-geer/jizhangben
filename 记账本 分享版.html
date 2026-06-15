@@ -570,15 +570,49 @@ function renderMonthStats() {
         <div class="stats-mini"><div class="stats-mini-label">笔均金额</div><div class="stats-mini-val">¥${monthRecs.length?(total/monthRecs.length).toFixed(0):0}</div></div>
       </div>
     </div>
-    <div class="section-title">支出分类</div>
-    ${topCat.length?topCat.map(([c,a])=>`<div class="stat-item">
-      <div class="stat-icon" style="background:${COLORS[c]}22">${ICONS[c]}</div>
-      <div class="stat-info">
-        <div class="stat-row"><span class="stat-name">${c}</span><span class="stat-val">¥${a.toFixed(2)}</span></div>
-        <div class="stat-bar-bg"><div class="stat-bar" style="background:${COLORS[c]};width:${total?(a/total*100).toFixed(0):0}%"></div></div>
-        <div class="stat-pct">${total?(a/total*100).toFixed(1):0}%</div>
-      </div></div>`).join(''):'<div style="color:#aaa;text-align:center;padding:20px">本月暂无数据</div>'}
-    ${topPay.length?`<div class="section-title">支付方式</div>${topPay.map(([p,a])=>`<div class="pay-stat-item"><span class="pay-stat-name">${PAY_ICONS[p]||'💳'} ${p}</span><span class="pay-stat-val">¥${a.toFixed(2)}</span></div>`).join('')}`:''}
+    <div class="section-title">支出分类 <span style="font-size:12px;color:#aaa">（点击展开明细）</span></div>
+    ${topCat.length?topCat.map(([c,a])=>{
+      const catRecs = monthRecs.filter(r=>r.category===c).sort((a,b)=>b.date.localeCompare(a.date));
+      const detailId = 'mcat_'+c+'_'+statsMonthYear+statsMonth;
+      return `<div style="margin-bottom:8px">
+        <div class="stat-item" onclick="toggleDetail('${detailId}')" style="cursor:pointer;margin-bottom:0;border-radius:16px 16px 0 0" id="${detailId}_header">
+          <div class="stat-icon" style="background:${COLORS[c]}22">${ICONS[c]}</div>
+          <div class="stat-info">
+            <div class="stat-row"><span class="stat-name">${c}</span><span class="stat-val" style="display:flex;align-items:center;gap:6px">¥${a.toFixed(2)} <span id="${detailId}_arrow" style="font-size:12px;color:#aaa">▼</span></span></div>
+            <div class="stat-bar-bg"><div class="stat-bar" style="background:${COLORS[c]};width:${total?(a/total*100).toFixed(0):0}%"></div></div>
+            <div class="stat-pct">${catRecs.length}笔 · ${total?(a/total*100).toFixed(1):0}%</div>
+          </div>
+        </div>
+        <div id="${detailId}" style="display:none;background:#fff;border-radius:0 0 16px 16px;overflow:hidden;border-top:1px solid #F2F2F7">
+          ${catRecs.map(r=>`<div class="record-item" onclick="event.stopPropagation();openActionSheet(${r.id})" style="cursor:pointer">
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:13px;color:#555">${r.date} ${r.pay?'· '+r.pay:''}</span>
+                <span style="font-weight:600;color:#1C1C1E">¥${r.amount.toFixed(2)}</span>
+              </div>
+              ${r.note?`<div style="font-size:12px;color:#8E8E93;margin-top:2px">${r.note}</div>`:''}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join(''):'<div style="color:#aaa;text-align:center;padding:20px">本月暂无数据</div>'}
+    ${topPay.length?`<div class="section-title">支付方式 <span style="font-size:12px;color:#aaa">（点击展开明细）</span></div>${topPay.map(([p,a])=>{
+      const payRecs = monthRecs.filter(r=>(r.pay||'其他')===p).sort((a,b)=>b.date.localeCompare(a.date));
+      const pid = 'mpay_'+p.replace(/\s/g,'')+'_'+statsMonthYear+statsMonth;
+      return `<div style="margin-bottom:8px">
+        <div class="pay-stat-item" onclick="toggleDetail('${pid}')" style="cursor:pointer;border-radius:12px 12px 0 0;margin-bottom:0" id="${pid}_header">
+          <span class="pay-stat-name">${PAY_ICONS[p]||'💳'} ${p}</span>
+          <span class="pay-stat-val" style="display:flex;align-items:center;gap:6px">¥${a.toFixed(2)} <span id="${pid}_arrow" style="font-size:12px;color:#aaa">▼</span></span>
+        </div>
+        <div id="${pid}" style="display:none;background:#fff;border-radius:0 0 12px 12px;overflow:hidden;border-top:1px solid #F2F2F7">
+          ${payRecs.map(r=>`<div class="record-item" onclick="event.stopPropagation();openActionSheet(${r.id})" style="cursor:pointer">
+            <div class="record-icon" style="background:${COLORS[r.category]}22;width:32px;height:32px;font-size:16px">${ICONS[r.category]}</div>
+            <div class="record-info"><div style="font-size:14px;font-weight:500">${r.category}${r.note?' · '+r.note:''}</div><div style="font-size:12px;color:#aaa">${r.date}</div></div>
+            <div class="record-amount">¥${r.amount.toFixed(2)}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}`:''}
   `;
 }
 
@@ -614,26 +648,73 @@ function renderYearStats() {
         <div class="stats-mini"><div class="stats-mini-label">最高月份</div><div class="stats-mini-val">${Object.entries(monthData).sort((a,b)=>b[1].total-a[1].total)[0]?.[0]||'-'}月</div></div>
       </div>
     </div>
-    <div class="section-title">各月支出</div>
-    ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`
-      <div class="year-month-item">
-        <div class="year-month-num">${m}月</div>
-        <div class="year-month-info">
-          <div class="year-month-row"><span class="year-month-label">${monthData[m].count?monthData[m].count+'笔':'暂无'}</span><span class="year-month-val">${monthData[m].total?'¥'+monthData[m].total.toFixed(2):'—'}</span></div>
-          <div class="year-month-bar-bg"><div class="year-month-bar" style="width:${(monthData[m].total/maxM*100).toFixed(0)}%"></div></div>
+    <div class="section-title">各月支出 <span style="font-size:12px;color:#aaa">（点击展开明细）</span></div>
+    ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>{
+      const pad = n=>String(n).padStart(2,'0');
+      const mkey = `${statsYear}-${pad(m)}`;
+      const mRecs = yearRecs.filter(r=>r.date?.startsWith(mkey)).sort((a,b)=>b.date.localeCompare(a.date));
+      const did = 'ym_'+statsYear+'_'+m;
+      return `<div style="margin-bottom:8px">
+        <div class="year-month-item" onclick="${mRecs.length?`toggleDetail('${did}')`:''}" style="${mRecs.length?'cursor:pointer':''};margin-bottom:0;border-radius:14px 14px 0 0" id="${did}_header">
+          <div class="year-month-num">${m}月</div>
+          <div class="year-month-info">
+            <div class="year-month-row">
+              <span class="year-month-label">${monthData[m].count?monthData[m].count+'笔':'暂无'}</span>
+              <span class="year-month-val" style="display:flex;align-items:center;gap:6px">${monthData[m].total?'¥'+monthData[m].total.toFixed(2):'—'}${mRecs.length?`<span id="${did}_arrow" style="font-size:12px;color:#aaa">▼</span>`:''}</span>
+            </div>
+            <div class="year-month-bar-bg"><div class="year-month-bar" style="width:${(monthData[m].total/maxM*100).toFixed(0)}%"></div></div>
+          </div>
         </div>
-      </div>`).join('')}
-    ${topCat.length?`<div class="section-title">年度分类汇总</div>${topCat.map(([c,a])=>`<div class="stat-item">
-      <div class="stat-icon" style="background:${COLORS[c]}22">${ICONS[c]}</div>
-      <div class="stat-info">
-        <div class="stat-row"><span class="stat-name">${c}</span><span class="stat-val">¥${a.toFixed(2)}</span></div>
-        <div class="stat-bar-bg"><div class="stat-bar" style="background:${COLORS[c]};width:${total?(a/total*100).toFixed(0):0}%"></div></div>
-        <div class="stat-pct">${total?(a/total*100).toFixed(1):0}%</div>
-      </div></div>`).join('')}`:''}
+        ${mRecs.length?`<div id="${did}" style="display:none;background:#fff;border-radius:0 0 14px 14px;overflow:hidden;border-top:1px solid #F2F2F7">
+          ${mRecs.map(r=>`<div class="record-item" onclick="event.stopPropagation();openActionSheet(${r.id})" style="cursor:pointer">
+            <div class="record-icon" style="background:${COLORS[r.category]}22;width:34px;height:34px;font-size:16px">${ICONS[r.category]}</div>
+            <div class="record-info"><div style="font-size:14px;font-weight:500">${r.category}${r.note?' · '+r.note:''}</div><div style="font-size:12px;color:#aaa">${r.date} ${r.pay?'· '+r.pay:''}</div></div>
+            <div class="record-amount">¥${r.amount.toFixed(2)}</div>
+          </div>`).join('')}
+        </div>`:''}
+      </div>`;
+    }).join('')}
+    ${topCat.length?`<div class="section-title">年度分类汇总 <span style="font-size:12px;color:#aaa">（点击展开明细）</span></div>${topCat.map(([c,a])=>{
+      const catRecs = yearRecs.filter(r=>r.category===c).sort((a,b)=>b.date.localeCompare(a.date));
+      const did = 'ycat_'+c+'_'+statsYear;
+      return `<div style="margin-bottom:8px">
+        <div class="stat-item" onclick="toggleDetail('${did}')" style="cursor:pointer;margin-bottom:0;border-radius:16px 16px 0 0">
+          <div class="stat-icon" style="background:${COLORS[c]}22">${ICONS[c]}</div>
+          <div class="stat-info">
+            <div class="stat-row"><span class="stat-name">${c}</span><span class="stat-val" style="display:flex;align-items:center;gap:6px">¥${a.toFixed(2)} <span id="${did}_arrow" style="font-size:12px;color:#aaa">▼</span></span></div>
+            <div class="stat-bar-bg"><div class="stat-bar" style="background:${COLORS[c]};width:${total?(a/total*100).toFixed(0):0}%"></div></div>
+            <div class="stat-pct">${catRecs.length}笔 · ${total?(a/total*100).toFixed(1):0}%</div>
+          </div>
+        </div>
+        <div id="${did}" style="display:none;background:#fff;border-radius:0 0 16px 16px;overflow:hidden;border-top:1px solid #F2F2F7">
+          ${catRecs.map(r=>`<div class="record-item" onclick="event.stopPropagation();openActionSheet(${r.id})" style="cursor:pointer">
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:13px;color:#555">${r.date} ${r.pay?'· '+r.pay:''}</span>
+                <span style="font-weight:600">¥${r.amount.toFixed(2)}</span>
+              </div>
+              ${r.note?`<div style="font-size:12px;color:#aaa;margin-top:2px">${r.note}</div>`:''}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}`:''}
   `;
 }
 
 let activeRecordId = null;
+
+function toggleDetail(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id+'_arrow');
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+  // Fix border radius on header
+  const header = document.getElementById(id+'_header');
+  if (header) header.style.borderRadius = isOpen ? '' : '16px 16px 0 0';
+}
 let editCat = '餐饮';
 let editPay = '支付宝';
 
